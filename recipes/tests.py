@@ -3,6 +3,39 @@ from django.test import TestCase
 from recipes.factories import IngredientFactory, RecipeFactory, RecipeComponentFactory
 
 
+class RecipeComponentIngredientMatching(TestCase):
+    def setUp(self):
+        self.ingredient = IngredientFactory.create()
+        self.ingredient_class = self.ingredient.ingredient_class
+        self.other_ingredient = IngredientFactory.create(
+            ingredient_class=self.ingredient_class,
+        )
+
+        self.wrong_ingredient = IngredientFactory.create()
+        self.wrong_ingredient_class = self.wrong_ingredient.ingredient_class
+
+        self.ingredient_recipe_component = RecipeComponentFactory.create(
+            ingredient=self.ingredient,
+        )
+        self.class_recipe_component = RecipeComponentFactory.create(
+            ingredient_class=self.ingredient_class,
+        )
+
+    def test_exact_ingredient_match(self):
+        self.assertTrue(
+            self.ingredient_recipe_component.matches(self.ingredient)
+        )
+
+    def test_ingredient_class_match(self):
+        self.assertTrue(
+            self.ingredient_recipe_component.matches(self.ingredient)
+        )
+
+        self.assertTrue(
+            self.class_recipe_component.matches(self.other_ingredient)
+        )
+
+
 class RecipeCombinationExactIngredientsTest(TestCase):
     def setUp(self):
         self.first_ingredient = IngredientFactory.create()

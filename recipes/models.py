@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Union
 
 from django.core.exceptions import ValidationError
 from django.db import models
@@ -10,6 +10,9 @@ class IngredientClass(models.Model):
         max_length=50,
         unique=True,
     )
+
+    def __str__(self):
+        return '%s class' % self.name
 
 
 class Ingredient(models.Model):
@@ -29,6 +32,12 @@ class Ingredient(models.Model):
             ('name', 'ingredient_class'),
         )
 
+    def __str__(self):
+        return '%s (%s)' % (
+            self.name,
+            self.ingredient_class,
+        )
+
 
 class RecipeComponent(models.Model):
     ingredient = models.ForeignKey(
@@ -46,6 +55,23 @@ class RecipeComponent(models.Model):
         blank=True,
         on_delete=models.CASCADE,
     )
+
+    @property
+    def _component(self) -> Union['Ingredient', 'IngredientClass']:
+        if self.ingredient:
+            return self.ingredient
+        elif self.ingredient_class:
+            return self.ingredient_class
+
+    def __str__(self):
+        return 'RecipeComponent: (%s)' % self._component
+
+    def matches(self, ingredient: 'Ingredient') -> bool:
+        component = self._component
+        if isinstance(component, Ingredient):
+            return ingredient == component
+        elif isinstance(component, IngredientClass):
+            return ingredient.ingredient_class == component
 
     def clean(self):
         if not self.ingredient and not self.ingredient_class:
@@ -68,27 +94,28 @@ class Recipe(models.Model):
         """
         Returns true if given ingredients create this recipe
         """
-        recipe_components = self.components.all()
-
-        recipe_matches = True
+        recipe_components = list(self.components.all())
         for ingredient in ingredients:
-            if not recipe_matches:
+            # Test ingredient along all components
+            ingredient_matches = False
+            for component in recipe_components:
+                if component.matches(ingredient):
+                    ingredient_matches = True
+                    recipe_components.remove(component)
+                    break
+
+            # If ingredient matched none of the components, the recipe is wrong
+            if not ingredient_matches:
                 return False
 
-            # Test ingredient along all components
-            ingredient_matches = True
-            for component in recipe_components:
-                # TODO: don't O(n^2) this
-                matches = False
-                if component.ingredient_class:
-                    # Check if ingredient class is same component
-                    matches = ingredient.ingredient_class == component.ingredient_class
-                elif component.ingredient:
-                    # Check if exact ingredient matches component
-                    matches = ingredient == component.ingredient
-
-                ingredient_matches = ingredient_matches and matches
-
-            recipe_matches = recipe_matches and ingredient_matches
+        # Check that all components were accounted for
+        if len(recipe_components) > 0:
+            return False
 
         return True
+
+    def __str__(self):
+        return '%s recipe: [%s]' % (
+            self.name,
+            ','.join(str(component) for component in self.components.all()),
+        )
