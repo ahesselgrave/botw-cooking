@@ -18,8 +18,6 @@ class Ingredient(models.Model):
         unique=True,
     )
 
-    image = models.ImageField()
-
     ingredient_class = models.ForeignKey(
         to='recipes.IngredientClass',
         related_name='ingredients',
@@ -61,7 +59,7 @@ class Recipe(models.Model):
         max_length=50,
         unique=True,
     )
-    image = models.ImageField()
+
     components = models.ManyToManyField(
         to='recipes.RecipeComponent',
     )
